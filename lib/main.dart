@@ -1,7 +1,20 @@
+import 'dart:async';
+import 'package:rflutter_alert/rflutter_alert.dart';
 import 'package:flutter/material.dart';
 
 void main() {
-  runApp(ElevatorApp());
+  runApp(MyWidget());
+}
+
+class MyWidget extends StatelessWidget {
+  const MyWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: ElevatorApp(),
+    );
+  }
 }
 
 class ElevatorApp extends StatefulWidget {
@@ -36,94 +49,117 @@ class _ElevatorAppState extends State<ElevatorApp> {
 
   int fromFloor = 0;
   int destination = 0;
+  int elevatorToMove = 0;
+  void onButtonPressed(BuildContext context) {
+    if (fromFloor > 10 ||
+        fromFloor < 1 ||
+        destination > 10 ||
+        destination < 1) {
+      Alert(
+        context: context,
+        title: 'Floor limit exceeded',
+        desc: "No floor available",
+      ).show();
+    } else {
+      int minDistance = 11;
+      for (var i = 0; i < 3; i++) {
+        if ((elevators[i].location - fromFloor).abs() < minDistance) {
+          minDistance = (elevators[i].location - fromFloor).abs();
+          elevatorToMove = i;
+        }
+      }
+      moveToUser(fromFloor, elevatorToMove);
+      scheduleTimeout(2 * 1000);
+    }
+  }
 
-  void onButtonPressed() {
+  Timer scheduleTimeout([int milliseconds = 10000]) =>
+      Timer(Duration(milliseconds: milliseconds), handleTimeout);
+
+  void handleTimeout() {
+    moveToDestination(destination, elevatorToMove);
+  }
+
+  void moveToDestination(int destination, int elevatorNumber) {
     setState(() {
-      elevators[0].location = destination;
+      elevators[elevatorNumber].location = destination;
+    });
+  }
+
+  void moveToUser(int fromFloor, int elevatorNumber) {
+    setState(() {
+      elevators[elevatorNumber].location = fromFloor;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Elevator App',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: Scaffold(
-          appBar: AppBar(
-            title: const Text('Elevator App'),
-          ),
-          body: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                  alignment: Alignment.topCenter,
-                  child: Row(children: [
-                    Expanded(
-                      child: TextField(
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(labelText: 'From Floor'),
-                        onChanged: (value) {
-                          setState(() {
-                            fromFloor = int.tryParse(value) ?? 0;
-                          });
-                        },
-                      ),
-                    ),
-                    SizedBox(width: 16.0),
-                    Expanded(
-                      child: TextField(
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(labelText: 'Destination'),
-                        onChanged: (value) {
-                          setState(() {
-                            destination = int.tryParse(value) ?? 0;
-                          });
-                        },
-                      ),
-                    ),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: onButtonPressed,
-                        child: Text('Move Elevator'),
-                      ),
-                    )
-                  ])),
-              Expanded(
-                  child: Row(
-                children: [
+    return Scaffold(
+        appBar: AppBar(
+          title: const Text('Elevator App'),
+        ),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+                alignment: Alignment.topCenter,
+                child: Row(children: [
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children:
-                          floors.map((floor) => BuildingFloor(floor)).toList(),
+                    child: TextField(
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(labelText: 'From Floor'),
+                      onChanged: (value) {
+                        setState(() {
+                          fromFloor = int.tryParse(value) ?? 0;
+                        });
+                      },
+                    ),
+                  ),
+                  SizedBox(width: 16.0),
+                  Expanded(
+                    child: TextField(
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(labelText: 'Destination'),
+                      onChanged: (value) {
+                        setState(() {
+                          destination = int.tryParse(value) ?? 0;
+                        });
+                      },
                     ),
                   ),
                   Expanded(
-                    child: BuildingElevator(
-                      elevators[0],
-                      (newLocation) => updateElevatorLocation(1, newLocation),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        onButtonPressed(context);
+                      },
+                      child: Text('Move Elevator'),
                     ),
+                  )
+                ])),
+            Expanded(
+                child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children:
+                        floors.map((floor) => BuildingFloor(floor)).toList(),
                   ),
-                  Expanded(
-                    child: BuildingElevator(
-                      elevators[1],
-                      (newLocation) => updateElevatorLocation(2, newLocation),
-                    ), //elevator 1
-                  ),
-                  Expanded(
-                    child: BuildingElevator(
-                      elevators[2],
-                      (newLocation) => updateElevatorLocation(3, newLocation),
-                    ), //elevator 1
-                  ),
-                ],
-              ))
-            ],
-          )),
-    );
+                ),
+                Expanded(
+                  child: BuildingElevator(elevators[0]),
+                ),
+                Expanded(
+                  child: BuildingElevator(elevators[1]), //elevator 1
+                ),
+                Expanded(
+                  child: BuildingElevator(elevators[2]), //elevator 1
+                ),
+              ],
+            ))
+          ],
+        ));
   }
 }
 
@@ -140,9 +176,8 @@ class ElevatorData {
 
 class BuildingElevator extends StatelessWidget {
   final ElevatorData elevatorData;
-  final Function(int) onUpdateLocation;
 
-  const BuildingElevator(this.elevatorData, this.onUpdateLocation);
+  const BuildingElevator(this.elevatorData);
 
   @override
   Widget build(BuildContext context) {
